@@ -12,8 +12,8 @@ the release:
 | Job | Install | Before running |
 |---|---|---|
 | `pip` | `pip install --index-url https://robertolocatelli81-dev.github.io/pypi/ cra-evidence` | release files checked against `SHA256SUMS`; a tampered pack must fail |
-| `image` | `docker run ghcr.io/robertolocatelli81-dev/cra-evidence:0.8.0` | `gh attestation verify`: built by the release workflow, at the release tag |
-| `action` | `uses: robertolocatelli81-dev/cra-evidence@v0.8.0` | the action verifies the provenance of the image digest it pulled, then runs it without network |
+| `image` | `docker run ghcr.io/robertolocatelli81-dev/cra-evidence:0.9.0` | `gh attestation verify`: built by the release workflow, at the release tag |
+| `action` | `uses: robertolocatelli81-dev/cra-evidence@v0.9.0` | the action verifies the provenance of the image digest it pulled, then runs it without network |
 
 Copy the job you need into your own workflow and replace the release's pack with yours.
 
