@@ -1,10 +1,10 @@
 name: installable
 
-# cra-evidence 0.7.1 installed the three ways a stranger would, on clean GitHub-hosted runners, each one verifying the
+# cra-evidence 0.8.0 installed the three ways a stranger would, on clean GitHub-hosted runners, each one verifying the
 # signed evidence pack published with the release (and refusing a tampered copy):
 #   pip      — the wheel from the PEP 503 index of the GitHub Releases
 #   image    — ghcr.io/robertolocatelli81-dev/cra-evidence, provenance checked with `gh attestation verify` first
-#   action   — `uses: robertolocatelli81-dev/cra-evidence@v0.7.1`
+#   action   — `uses: robertolocatelli81-dev/cra-evidence@v0.8.0`
 
 on:
   push:
@@ -17,7 +17,7 @@ permissions:
   contents: read
 
 env:
-  V: "0.7.1"
+  V: "0.8.0"
   SRC: robertolocatelli81-dev/cra-evidence
 
 jobs:
@@ -85,12 +85,12 @@ jobs:
           gh release download "v$V" -R "$SRC" -D rel
           cd rel && sha256sum -c SHA256SUMS
       - id: cra
-        uses: robertolocatelli81-dev/cra-evidence@v0.7.1
+        uses: robertolocatelli81-dev/cra-evidence@v0.8.0
         with:
           args: >-
-            verify rel/cra-evidence-0.7.1-cra_pack.json
-            --ledger rel/cra-evidence-0.7.1-cra.ledger.jsonl
-            --trust-store rel/cra-evidence-0.7.1-trust.json
+            verify rel/cra-evidence-0.8.0-cra_pack.json
+            --ledger rel/cra-evidence-0.8.0-cra.ledger.jsonl
+            --trust-store rel/cra-evidence-0.8.0-trust.json
       - name: The action ran the verified digest and cra answered 0
         env:
           IMAGE: ${{ steps.cra.outputs.image }}
