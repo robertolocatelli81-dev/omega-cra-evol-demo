@@ -1,10 +1,10 @@
 name: installable
 
-# cra-evidence 0.9.0 installed the three ways a stranger would, on clean GitHub-hosted runners, each one verifying the
+# omega-cra-evol 0.10.0 installed the three ways a stranger would, on clean GitHub-hosted runners, each one verifying the
 # signed evidence pack published with the release (and refusing a tampered copy):
 #   pip      — the wheel from the PEP 503 index of the GitHub Releases
-#   image    — ghcr.io/robertolocatelli81-dev/cra-evidence, provenance checked with `gh attestation verify` first
-#   action   — `uses: robertolocatelli81-dev/cra-evidence@v0.9.0`
+#   image    — ghcr.io/robertolocatelli81-dev/omega-cra-evol, provenance checked with `gh attestation verify` first
+#   action   — `uses: robertolocatelli81-dev/omega-cra-evol@v0.10.0`
 
 on:
   push:
@@ -17,8 +17,8 @@ permissions:
   contents: read
 
 env:
-  V: "0.9.0"
-  SRC: robertolocatelli81-dev/cra-evidence
+  V: "0.10.0"
+  SRC: robertolocatelli81-dev/omega-cra-evol
 
 jobs:
   pip:
@@ -29,9 +29,10 @@ jobs:
           python-version: "3.12"
       - name: Install from the index, then the [sign] dependency from PyPI
         run: |
-          python -m pip install --index-url https://robertolocatelli81-dev.github.io/pypi/ "cra-evidence==$V"
+          python -m pip install --index-url https://robertolocatelli81-dev.github.io/pypi/ "omega-cra-evol==$V"
           python -m pip install cryptography
-          test "$(cra --version)" = "cra-evidence $V"
+          test "$(cra --version)" = "omega-cra-evol $V"
+          test "$(omega-cra-evol --version)" = "omega-cra-evol $V"
       - name: Download the release's evidence and check it against SHA256SUMS
         env:
           GH_TOKEN: ${{ github.token }}
@@ -43,12 +44,12 @@ jobs:
         run: |
           set -euo pipefail
           cd rel
-          cra verify "cra-evidence-$V-cra_pack.json" --ledger "cra-evidence-$V-cra.ledger.jsonl" --trust-store "cra-evidence-$V-trust.json" > ok.json
+          cra verify "omega-cra-evol-$V-cra_pack.json" --ledger "omega-cra-evol-$V-cra.ledger.jsonl" --trust-store "omega-cra-evol-$V-trust.json" > ok.json
           python -c "import json,sys; d=json.load(open('ok.json')); print(d['ok'], d['authenticity']); sys.exit(0 if (d['ok'], d['authenticity']) == (True, 'trusted-signed') else 1)"
-          sed "s/\"$V\"/\"$V-tampered\"/" "cra-evidence-$V-cra_pack.json" > tampered.json
-          cp "cra-evidence-$V-cra_pack.json.sig.json" tampered.json.sig.json
-          if cmp -s "cra-evidence-$V-cra_pack.json" tampered.json; then echo "positive control: the tampered copy is identical"; exit 1; fi
-          rc=0; cra verify tampered.json --ledger "cra-evidence-$V-cra.ledger.jsonl" --trust-store "cra-evidence-$V-trust.json" > bad.json || rc=$?
+          sed "s/\"$V\"/\"$V-tampered\"/" "omega-cra-evol-$V-cra_pack.json" > tampered.json
+          cp "omega-cra-evol-$V-cra_pack.json.sig.json" tampered.json.sig.json
+          if cmp -s "omega-cra-evol-$V-cra_pack.json" tampered.json; then echo "positive control: the tampered copy is identical"; exit 1; fi
+          rc=0; cra verify tampered.json --ledger "omega-cra-evol-$V-cra.ledger.jsonl" --trust-store "omega-cra-evol-$V-trust.json" > bad.json || rc=$?
           test "$rc" -eq 1
 
   image:
@@ -72,7 +73,7 @@ jobs:
           set -euo pipefail
           cd rel
           docker run --rm --network none --user "$(id -u):$(id -g)" -v "$PWD:/work" "ghcr.io/$SRC:$V" \
-            verify "cra-evidence-$V-cra_pack.json" --ledger "cra-evidence-$V-cra.ledger.jsonl" --trust-store "cra-evidence-$V-trust.json" > ok.json
+            verify "omega-cra-evol-$V-cra_pack.json" --ledger "omega-cra-evol-$V-cra.ledger.jsonl" --trust-store "omega-cra-evol-$V-trust.json" > ok.json
           python3 -c "import json,sys; d=json.load(open('ok.json')); print(d['ok'], d['authenticity']); sys.exit(0 if (d['ok'], d['authenticity']) == (True, 'trusted-signed') else 1)"
 
   action:
@@ -85,12 +86,12 @@ jobs:
           gh release download "v$V" -R "$SRC" -D rel
           cd rel && sha256sum -c SHA256SUMS
       - id: cra
-        uses: robertolocatelli81-dev/cra-evidence@v0.9.0
+        uses: robertolocatelli81-dev/omega-cra-evol@v0.10.0
         with:
           args: >-
-            verify rel/cra-evidence-0.9.0-cra_pack.json
-            --ledger rel/cra-evidence-0.9.0-cra.ledger.jsonl
-            --trust-store rel/cra-evidence-0.9.0-trust.json
+            verify rel/omega-cra-evol-0.10.0-cra_pack.json
+            --ledger rel/omega-cra-evol-0.10.0-cra.ledger.jsonl
+            --trust-store rel/omega-cra-evol-0.10.0-trust.json
       - name: The action ran the verified digest and cra answered 0
         env:
           IMAGE: ${{ steps.cra.outputs.image }}
