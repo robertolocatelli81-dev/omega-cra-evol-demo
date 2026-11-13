@@ -1,0 +1,101 @@
+name: installable
+
+# cra-evidence 0.7.1 installed the three ways a stranger would, on clean GitHub-hosted runners, each one verifying the
+# signed evidence pack published with the release (and refusing a tampered copy):
+#   pip      — the wheel from the PEP 503 index of the GitHub Releases
+#   image    — ghcr.io/robertolocatelli81-dev/cra-evidence, provenance checked with `gh attestation verify` first
+#   action   — `uses: robertolocatelli81-dev/cra-evidence@v0.7.1`
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  schedule:
+    - cron: "17 6 * * 1"
+
+permissions:
+  contents: read
+
+env:
+  V: "0.7.1"
+  SRC: robertolocatelli81-dev/cra-evidence
+
+jobs:
+  pip:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+      - name: Install from the index, then the [sign] dependency from PyPI
+        run: |
+          python -m pip install --index-url https://robertolocatelli81-dev.github.io/pypi/ "cra-evidence==$V"
+          python -m pip install cryptography
+          test "$(cra --version)" = "cra-evidence $V"
+      - name: Download the release's evidence and check it against SHA256SUMS
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download "v$V" -R "$SRC" -D rel
+          cd rel && sha256sum -c SHA256SUMS
+      - name: Verify the signed pack; a tampered copy must fail
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd rel
+          cra verify "cra-evidence-$V-cra_pack.json" --ledger "cra-evidence-$V-cra.ledger.jsonl" --trust-store "cra-evidence-$V-trust.json" > ok.json
+          python -c "import json,sys; d=json.load(open('ok.json')); print(d['ok'], d['authenticity']); sys.exit(0 if (d['ok'], d['authenticity']) == (True, 'trusted-signed') else 1)"
+          sed "s/\"$V\"/\"$V-tampered\"/" "cra-evidence-$V-cra_pack.json" > tampered.json
+          cp "cra-evidence-$V-cra_pack.json.sig.json" tampered.json.sig.json
+          if cmp -s "cra-evidence-$V-cra_pack.json" tampered.json; then echo "positive control: the tampered copy is identical"; exit 1; fi
+          rc=0; cra verify tampered.json --ledger "cra-evidence-$V-cra.ledger.jsonl" --trust-store "cra-evidence-$V-trust.json" > bad.json || rc=$?
+          test "$rc" -eq 1
+
+  image:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check the image's provenance (built by the release workflow, at the release tag)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh attestation verify "oci://ghcr.io/$SRC:$V" --repo "$SRC" \
+            --signer-workflow "$SRC/.github/workflows/container.yml" --source-ref "refs/tags/v$V"
+      - name: Download the release's evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download "v$V" -R "$SRC" -D rel
+          cd rel && sha256sum -c SHA256SUMS
+      - name: Verify the signed pack with the image
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd rel
+          docker run --rm --network none --user "$(id -u):$(id -g)" -v "$PWD:/work" "ghcr.io/$SRC:$V" \
+            verify "cra-evidence-$V-cra_pack.json" --ledger "cra-evidence-$V-cra.ledger.jsonl" --trust-store "cra-evidence-$V-trust.json" > ok.json
+          python3 -c "import json,sys; d=json.load(open('ok.json')); print(d['ok'], d['authenticity']); sys.exit(0 if (d['ok'], d['authenticity']) == (True, 'trusted-signed') else 1)"
+
+  action:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Download the release's evidence into the workspace
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download "v$V" -R "$SRC" -D rel
+          cd rel && sha256sum -c SHA256SUMS
+      - id: cra
+        uses: robertolocatelli81-dev/cra-evidence@v0.7.1
+        with:
+          args: >-
+            verify rel/cra-evidence-0.7.1-cra_pack.json
+            --ledger rel/cra-evidence-0.7.1-cra.ledger.jsonl
+            --trust-store rel/cra-evidence-0.7.1-trust.json
+      - name: The action ran the verified digest and cra answered 0
+        env:
+          IMAGE: ${{ steps.cra.outputs.image }}
+          RC: ${{ steps.cra.outputs.exit-code }}
+        run: |
+          echo "$IMAGE"
+          case "$IMAGE" in "ghcr.io/$SRC@sha256:"*) ;; *) exit 1;; esac
+          test "$RC" = 0
